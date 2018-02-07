@@ -1,0 +1,264 @@
+---
+title: "Week 5 - in class discussion materials"
+output: html_notebook
+---
+
+# Working with datasets Vol. 2
+
+## R for Data Science
+### Chapter 5 - Data transformation
+
+```{r}
+library(tidyverse)
+```
+
+#### Load the nycflights13 dataset pacakge
+```{r}
+library(nycflights13)
+flights
+```
+
+## Vigneetes
+```{r}
+browseVignettes("tidyverse")
+?flights
+```
+
+
+## filter()
+Subset observatios based on their values.
+
+### 5.2.4 Exercises
+
+1. Find all flights that
+
+* Had an arrival delay of two or more hours
+```{r}
+filter(flights, arr_delay >=120)
+```
+
+* Flew to Houston (IAH or HOU)
+```{r}
+filter(flights, dest == "IAH" | dest == "HOU")
+```
+
+* Were operated by United, American, or Delta
+```{r}
+?flights
+
+# tells me that there is another data frame with the two letter carrier abbreivation. See airlines to get the name.
+airlines
+```
+
+```{r}
+# United == UA, American == AA, Delta == DL
+
+filter(flights, carrier == "UA" | carrier =="AA" | carrier == "DL")
+
+```
+
+
+* Departed in summer (July, August, and September)
+```{r}
+filter(flights, month %in% c(7,8,9))
+```
+
+* Arrived more than two hours late, but didn’t leave late
+```{r}
+filter(flights, arr_delay >= 120, dep_delay <=0)
+```
+
+* Were delayed by at least an hour, but made up over 30 minutes in flight
+```{r}
+filter(flights, dep_delay >= 60 & dep_delay - arr_delay > 30)
+# if dep_delay = 60 and arr_delay is only 15, the flight made up 45 minutes
+```
+
+Departed between midnight and 6am (inclusive)
+```{r}
+filter(flights, dep_time == 0)
+filter(flights, dep_time == 2400)
+filter(flights, dep_time <= 600 | dep_time == 2400)
+```
+
+2. Another useful **dplyr** filtering helper is `between()`. What does it do? Can you use it to simpnlify the code needed to answer the previous challenges?
+```{r}
+?between()
+
+# between(x, left, right)
+
+filter(flights, between(arr_delay, 120, Inf))
+```
+
+3. How many flights have a missing dep_time? What other variables are missing? What might these rows represent?
+```{r}
+filter(flights, is.na(dep_time))
+
+# arr_time is missing; cancelled flights
+```
+
+4. Why is `NA ^ 0` not missing? Why is NA | TRUE not missing? Why is FALSE & NA not missing? Can you figure out the general rule? (NA * 0 is a tricky counterexample!)
+
+```{r}
+NA^0
+NA | TRUE
+NA & FALSE
+NA*0
+```
+
+## arange()
+
+`arrange()` works similarly to `filter()` except that instead of selecting rows, it changes their order. It takes a data frame and a set of column names (or more complicated expressions) to order by. If you provide more than one column name, each additional column will be used to break ties in the values of preceding columns:
+
+### 5.3.1 Excercises
+
+1. How could you use `arrange()` to sort all missing values to the start? (Hint: use is.na()).
+```{r}
+arrange(flights, desc(is.na(dep_time)))
+```
+
+2. Sort `flights` to find the most delayed flights. Find the flights that left earliest.
+```{r}
+arrange(flights, desc(arr_delay))
+arrange(flights, dep_delay)
+```
+
+3. Sort flights to find the fastest flights.
+```{r}
+arrange(flights, air_time)
+```
+
+4. Which flights travelled the longest? Which travelled the shortest?
+```{r}
+arrange(flights, desc(distance))
+arrange(flights, distance)
+```
+
+## select()
+
+### 5.4.1 Exercises
+
+1. Brainstorm as many ways as possible to select `dep_time`, `dep_delay`, `arr_time`, and `arr_Delay` from flights.
+(why?)
+
+> There are a number of helper functions you can use within select():  
+starts_with("abc"): matches names that begin with “abc”. 
+ends_with("xyz"): matches names that end with “xyz”.  
+contains("ijk"): matches names that contain “ijk”.  
+matches("(.)\\1"): selects variables that match a regular expression. This one matches any variables that contain repeated characters. You’ll learn more about regular expressions in strings.  
+num_range("x", 1:3) matches x1, x2 and x3.  
+See ?select for more details.  
+
+```{r}
+select(flights, contains("TIME"))
+select(flights, contains("TIME", ignore.case = FALSE))
+```
+
+## mutate()
+
+`mutate()` always adds new columns at the end of your dataset so we’ll start by creating a narrower dataset so we can see the new variables. Remember that when you’re in RStudio, the easiest way to see all the columns is `View()`.
+
+### 5.5.2 Exercises
+
+Working with the flights dataset (modular arithmetic)
+```{r}
+time_test <- as.integer(2130)
+time_test
+
+hour_int <- time_test %/% 100
+hour_int
+
+minute <- time_test %% 100
+minute
+
+minute / 60
+```
+
+Is there another way?
+```{r}
+time_test2 <- as.integer(2130)
+time_test2
+
+hour_trunc <- trunc(time_test / 100)
+hour_trunc
+
+minute <- time_test2 - hour_trunc*100
+minute
+
+minute / 60
+
+hour_trunc + minute/60
+```
+
+1. Currently dep_time and sched_dep_time are convenient to look at, but hard to compute with because they’re not really continuous numbers. Convert them to a more convenient representation of number of minutes since midnight.
+
+Walking through this step wise... first make 517 -> 500  
+```{r}
+mutate(flights, dep_time_frac = trunc(dep_time/100)*100)
+```
+
+next confirm the fractional minutes  
+```{r}
+mutate(flights, dep_time_frac = (dep_time - trunc(dep_time/100)*100))
+```
+
+create the fractional minutes
+```{r}
+mutate(flights, dep_time_frac = (dep_time - trunc(dep_time/100)*100)/60)
+```
+
+Now put the hour and fraction together
+```{r}
+mutate(flights, dep_time_frac = trunc(dep_time/100) + (dep_time - trunc(dep_time/100)*100)/60)
+```
+
+Repeat for the `sched_dep_time`
+```{r}
+mutate(flights, sched_dep_time_frac = trunc(sched_dep_time/100) + (sched_dep_time - trunc(sched_dep_time/100)*100)/60)
+```
+
+Make a new data frame with both variables
+```{r}
+flights_frac <- mutate(flights, dep_time_frac = trunc(dep_time/100) + (dep_time - trunc(dep_time/100)*100)/60,sched_dep_time_frac = trunc(sched_dep_time/100) + (sched_dep_time - trunc(sched_dep_time/100)*100)/60)
+flights_frac
+```
+
+4. Find the 10 most delayed flights using a ranking function. How do you want to handle ties? Carefully read the documentation for `min_ran()`.
+```{r}
+?min_rank
+# min_rank(): equivalent to rank(ties.method = "min")
+
+flights_rank <- mutate(flights, dep_delay_rank = min_rank(-dep_delay)) %>%
+  arrange(dep_delay_rank) %>%
+  filter(dep_delay_rank <=10)
+
+flights_rank
+```
+
+## summarise()
+
+### From week 4
+
+```{r}
+mpc61a_clean <- read_csv("mpc61a_clean.csv")
+mpc61a_clean
+```
+
+#### group_by() & summarise()
+
+```{r}
+wafer_probe_summary <- group_by (mpc61a_clean, wafer, probe) %>% summarise(sd_ave = sd(average), n = n())
+
+wafer_probe_summary
+```
+
+```{r echo=TRUE}
+ggplot(wafer_probe_summary) +
+  geom_bar(aes(x = as.factor(wafer), y = sd_ave, fill = as.factor(probe)), stat = "identity") +
+  facet_grid(. ~ probe) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) +
+  labs(fill = "probe", x = "wafer", y = "standard deviation of the average, s2") 
+```
+
+
+
